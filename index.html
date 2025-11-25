@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>किसान और बैल - खेती का दृश्य</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 50%, #8B7355 50%, #6B5345 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        canvas {
+            border: 3px solid #654321;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            background: linear-gradient(to bottom, #87CEEB 0%, #E0F6FF 40%, #8B7355 40%, #6B5345 100%);
+        }
+
+        .info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255,255,255,0.9);
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            font-size: 18px;
+            color: #333;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="info">🌾 किसान खेत में हल चला रहा है 🐂🐂</div>
+    <canvas id="farmCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('farmCanvas');
+        const ctx = canvas.getContext('2d');
+
+        canvas.width = 1200;
+        canvas.height = 700;
+
+        let animationFrame = 0;
+        let plowPosition = 0;
+
+        // Draw sky with sun
+        function drawSky() {
+            const gradient = ctx.createLinearGradient(0, 0, 0, 280);
+            gradient.addColorStop(0, '#87CEEB');
+            gradient.addColorStop(1, '#E0F6FF');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, 280);
+
+            // Sun
+            ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            ctx.arc(150, 80, 50, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Sun rays
+            ctx.strokeStyle = '#FFA500';
+            ctx.lineWidth = 3;
+            for (let i = 0; i < 8; i++) {
+                const angle = (Math.PI * 2 * i) / 8;
+                ctx.beginPath();
+                ctx.moveTo(150 + Math.cos(angle) * 60, 80 + Math.sin(angle) * 60);
+                ctx.lineTo(150 + Math.cos(angle) * 80, 80 + Math.sin(angle) * 80);
+                ctx.stroke();
+            }
+        }
+
+        // Draw clouds
+        function drawClouds() {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+
+            // Cloud 1
+            drawCloud(400, 100, 1);
+            // Cloud 2
+            drawCloud(800, 120, 0.8);
+            // Cloud 3
+            drawCloud(1000, 80, 1.2);
+        }
+
+        function drawCloud(x, y, scale) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.scale(scale, scale);
+            ctx.beginPath();
+            ctx.arc(0, 0, 25, 0, Math.PI * 2);
+            ctx.arc(20, 5, 30, 0, Math.PI * 2);
+            ctx.arc(45, 0, 28, 0, Math.PI * 2);
+            ctx.arc(60, 5, 25, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // Draw field
+        function drawField() {
+            const fieldGradient = ctx.createLinearGradient(0, 280, 0, canvas.height);
+            fieldGradient.addColorStop(0, '#8B7355');
+            fieldGradient.addColorStop(1, '#6B5345');
+            ctx.fillStyle = fieldGradient;
+            ctx.fillRect(0, 280, canvas.width, canvas.height - 280);
+
+            // Draw plowed rows
+            ctx.strokeStyle = '#4A3728';
+            ctx.lineWidth = 3;
+            for (let i = 0; i < 15; i++) {
+                const y = 320 + i * 25;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                for (let x = 0; x < canvas.width; x += 30) {
+                    ctx.lineTo(x, y + Math.sin(x * 0.02 + i) * 3);
+                }
+                ctx.stroke();
+            }
+        }
+
+        // Draw ox (bail)
+        function drawOx(x, y, offset) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            // Body
+            ctx.fillStyle = offset === 0 ? '#8B4513' : '#A0522D';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 60, 35, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Head
+            ctx.beginPath();
+            ctx.ellipse(-50, -10, 35, 25, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Horns
+            ctx.strokeStyle = '#F5DEB3';
+            ctx.lineWidth = 5;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(-65, -25);
+            ctx.quadraticCurveTo(-75, -45, -70, -55);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(-55, -25);
+            ctx.quadraticCurveTo(-60, -45, -55, -55);
+            ctx.stroke();
+
+            // Eyes
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(-60, -15, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(-45, -15, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Legs (animated)
+            ctx.strokeStyle = '#8B4513';
+            ctx.lineWidth = 8;
+            ctx.lineCap = 'round';
+
+            const legOffset1 = Math.sin(animationFrame * 0.1 + offset) * 10;
+            const legOffset2 = Math.sin(animationFrame * 0.1 + offset + Math.PI) * 10;
+
+            // Front legs
+            ctx.beginPath();
+            ctx.moveTo(-30, 25);
+            ctx.lineTo(-30 + legOffset1, 65);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(-20, 25);
+            ctx.lineTo(-20 + legOffset2, 65);
+            ctx.stroke();
+
+            // Back legs
+            ctx.beginPath();
+            ctx.moveTo(20, 25);
+            ctx.lineTo(20 + legOffset2, 65);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(30, 25);
+            ctx.lineTo(30 + legOffset1, 65);
+            ctx.stroke();
+
+            // Tail
+            ctx.strokeStyle = '#654321';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(55, 0);
+            ctx.quadraticCurveTo(70 + Math.sin(animationFrame * 0.2) * 10,
+                                 -10 + Math.cos(animationFrame * 0.2) * 10,
+                                 75, -20);
+            ctx.stroke();
+
+            // Rope/harness
+            ctx.strokeStyle = '#8B6914';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(-20, -5);
+            ctx.lineTo(100, 20);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        // Draw plow (hal)
+        function drawPlow(x, y) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            // Wooden frame
+            ctx.fillStyle = '#654321';
+            ctx.fillRect(-10, -30, 20, 60);
+
+            // Metal blade
+            ctx.fillStyle = '#778899';
+            ctx.beginPath();
+            ctx.moveTo(0, 30);
+            ctx.lineTo(-15, 45);
+            ctx.lineTo(15, 45);
+            ctx.closePath();
+            ctx.fill();
+
+            // Handles
+            ctx.strokeStyle = '#8B4513';
+            ctx.lineWidth = 6;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(0, -30);
+            ctx.lineTo(-25, -60);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(0, -30);
+            ctx.lineTo(25, -60);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        // Draw farmer (kisan)
+        function drawFarmer(x, y) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            // Legs (animated)
+            ctx.strokeStyle = '#2F4F4F';
+            ctx.lineWidth = 10;
+            ctx.lineCap = 'round';
+
+            const legMove = Math.sin(animationFrame * 0.1) * 8;
+            ctx.beginPath();
+            ctx.moveTo(-8, 20);
+            ctx.lineTo(-8 + legMove, 60);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(8, 20);
+            ctx.lineTo(8 - legMove, 60);
+            ctx.stroke();
+
+            // Body
+            ctx.fillStyle = '#FF6347';
+            ctx.fillRect(-15, -20, 30, 40);
+
+            // Arms holding plow
+            ctx.strokeStyle = '#D2691E';
+            ctx.lineWidth = 8;
+            ctx.beginPath();
+            ctx.moveTo(-12, -10);
+            ctx.lineTo(-35, 10);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(12, -10);
+            ctx.lineTo(35, 10);
+            ctx.stroke();
+
+            // Head
+            ctx.fillStyle = '#D2691E';
+            ctx.beginPath();
+            ctx.arc(0, -35, 18, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Turban (pagri)
+            ctx.fillStyle = '#FF8C00';
+            ctx.beginPath();
+            ctx.ellipse(0, -48, 22, 12, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Face features
+            ctx.fillStyle = '#000';
+            ctx.beginPath();
+            ctx.arc(-6, -35, 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(6, -35, 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Smile
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(0, -32, 8, 0, Math.PI, false);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        // Draw plants/crops in background
+        function drawCrops() {
+            ctx.fillStyle = '#228B22';
+            for (let i = 0; i < 20; i++) {
+                const x = Math.random() * canvas.width;
+                const y = 290 + Math.random() * 50;
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x - 5, y - 15);
+                ctx.lineTo(x, y - 12);
+                ctx.lineTo(x + 5, y - 15);
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+
+        // Draw birds
+        function drawBirds() {
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2;
+
+            for (let i = 0; i < 5; i++) {
+                const x = 300 + i * 150 + Math.sin(animationFrame * 0.05 + i) * 30;
+                const y = 100 + Math.sin(animationFrame * 0.03 + i) * 20;
+
+                ctx.beginPath();
+                ctx.moveTo(x - 10, y);
+                ctx.quadraticCurveTo(x - 5, y - 8, x, y);
+                ctx.quadraticCurveTo(x + 5, y - 8, x + 10, y);
+                ctx.stroke();
+            }
+        }
+
+        // Main animation loop
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Background elements
+            drawSky();
+            drawClouds();
+            drawField();
+            drawCrops();
+            drawBirds();
+
+            // Moving elements
+            const baseX = 300 + Math.sin(animationFrame * 0.02) * 50;
+            const baseY = 420;
+
+            // Draw oxen
+            drawOx(baseX - 100, baseY, 0);
+            drawOx(baseX + 20, baseY, Math.PI);
+
+            // Draw plow
+            drawPlow(baseX + 180, baseY + 20);
+
+            // Draw farmer
+            drawFarmer(baseX + 180, baseY - 20);
+
+            animationFrame++;
+            requestAnimationFrame(animate);
+        }
+
+        // Start animation
+        animate();
+    </script>
+</body>
+</html>
